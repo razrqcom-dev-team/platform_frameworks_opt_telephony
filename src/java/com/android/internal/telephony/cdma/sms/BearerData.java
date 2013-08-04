@@ -38,7 +38,7 @@ import java.util.TimeZone;
  * An object to encode and decode CDMA SMS bearer data.
  */
 public final class BearerData {
-    private final static String LOG_TAG = "SMS";
+    private final static String LOG_TAG = "BearerData";
 
     /**
      * Bearer Data Subparameter Identifiers
@@ -411,7 +411,7 @@ public final class BearerData {
         StringBuilder builder = new StringBuilder();
         builder.append("BearerData ");
         builder.append("{ messageType=" + messageType);
-        builder.append(", messageId=" + (int)messageId);
+        builder.append(", messageId=" + messageId);
         builder.append(", priority=" + (priorityIndicatorSet ? priority : "unset"));
         builder.append(", privacy=" + (privacyIndicatorSet ? privacy : "unset"));
         builder.append(", alert=" + (alertIndicatorSet ? alert : "unset"));
@@ -959,8 +959,7 @@ public final class BearerData {
    }
 
     private static boolean decodeMessageId(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 3 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1119,11 +1118,7 @@ public final class BearerData {
     private static String decodeShiftJis(byte[] data, int offset, int numFields)
         throws CodingException
     {
-        try {
-            return new String(data, offset, numFields - offset, "Shift_JIS");
-        } catch (java.io.UnsupportedEncodingException ex) {
-            throw new CodingException("Shift_JIS decode failed: " + ex);
-        }
+        return decodeCharset(data, offset, numFields, 1, "Shift_JIS");
     }
 
     private static void decodeUserDataPayload(UserData userData, boolean hasUserDataHeader)
@@ -1304,8 +1299,7 @@ public final class BearerData {
     }
 
     private static boolean decodeReplyOption(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1328,8 +1322,7 @@ public final class BearerData {
     }
 
     private static boolean decodeMsgCount(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1348,8 +1341,7 @@ public final class BearerData {
     }
 
     private static boolean decodeDepositIndex(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 2 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1435,8 +1427,7 @@ public final class BearerData {
     }
 
     private static boolean decodeMsgStatus(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1457,8 +1448,7 @@ public final class BearerData {
     }
 
     private static boolean decodeMsgCenterTimeStamp(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 6 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1477,8 +1467,7 @@ public final class BearerData {
     }
 
     private static boolean decodeValidityAbs(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 6 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1497,8 +1486,7 @@ public final class BearerData {
     }
 
     private static boolean decodeDeferredDeliveryAbs(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 6 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1518,8 +1506,7 @@ public final class BearerData {
     }
 
     private static boolean decodeValidityRel(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1539,8 +1526,7 @@ public final class BearerData {
     }
 
     private static boolean decodeDeferredDeliveryRel(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1560,8 +1546,7 @@ public final class BearerData {
     }
 
     private static boolean decodePrivacyIndicator(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1582,8 +1567,7 @@ public final class BearerData {
     }
 
     private static boolean decodeLanguageIndicator(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1603,8 +1587,7 @@ public final class BearerData {
     }
 
     private static boolean decodeDisplayMode(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1625,8 +1608,7 @@ public final class BearerData {
     }
 
     private static boolean decodePriorityIndicator(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1647,8 +1629,7 @@ public final class BearerData {
     }
 
     private static boolean decodeMsgDeliveryAlert(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;
@@ -1669,8 +1650,7 @@ public final class BearerData {
     }
 
     private static boolean decodeUserResponseCode(BearerData bData, BitwiseInputStream inStream)
-        throws BitwiseInputStream.AccessException, CodingException
-    {
+        throws BitwiseInputStream.AccessException {
         final int EXPECTED_PARAM_SIZE = 1 * 8;
         boolean decodeSuccess = false;
         int paramBits = inStream.read(8) * 8;

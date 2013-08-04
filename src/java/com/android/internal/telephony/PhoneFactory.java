@@ -22,8 +22,6 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.telephony.Rlog;
-import android.os.SystemProperties;
-
 import com.android.internal.telephony.cdma.CDMAPhone;
 import com.android.internal.telephony.cdma.CDMALTEPhone;
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
@@ -36,7 +34,7 @@ import com.android.internal.telephony.uicc.UiccController;
  * {@hide}
  */
 public class PhoneFactory {
-    static final String LOG_TAG = "PHONE";
+    static final String LOG_TAG = "PhoneFactory";
     static final int SOCKET_OPEN_RETRY_MILLIS = 2 * 1000;
     static final int SOCKET_OPEN_MAX_RETRY = 3;
 
@@ -50,7 +48,7 @@ public class PhoneFactory {
     static private Looper sLooper;
     static private Context sContext;
 
-    static final int preferredCdmaSubscription =
+    static final int sPreferredCdmaSubscription =
                          CdmaSubscriptionSourceManager.PREFERRED_CDMA_SUBSCRIPTION;
 
     //***** Class Methods
@@ -130,7 +128,7 @@ public class PhoneFactory {
                         //Get cdmaSubscription mode from Settings.System
                         cdmaSubscription = Settings.Global.getInt(context.getContentResolver(),
                                 Settings.Global.PREFERRED_CDMA_SUBSCRIPTION,
-                                preferredCdmaSubscription);
+                                sPreferredCdmaSubscription);
                         Rlog.i(LOG_TAG, "lteOnCdma not set, using PREFERRED_CDMA_SUBSCRIPTION");
                         break;
                 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.telephony;
+package com.android.internal.telephony.dataconnection;
 
 import android.net.LinkAddress;
 import android.net.LinkProperties;
@@ -24,7 +24,7 @@ import android.net.RouteInfo;
 import android.os.SystemProperties;
 import android.telephony.Rlog;
 
-import com.android.internal.telephony.DataConnection.FailCause;
+import com.android.internal.telephony.dataconnection.DcFailCause;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -32,11 +32,10 @@ import java.net.UnknownHostException;
 
 /**
  * This is RIL_Data_Call_Response_v5 from ril.h
- * TODO: Rename to DataCallResponse.
  */
-public class DataCallState {
+public class DataCallResponse {
     private final boolean DBG = true;
-    private final String LOG_TAG = "GSM";
+    private final String LOG_TAG = "DataCallResponse";
 
     public int version = 0;
     public int status = 0;
@@ -60,10 +59,10 @@ public class DataCallState {
         ERR_Stale,
         ERR_RilError;
 
-        public FailCause mFailCause;
+        public DcFailCause mFailCause;
 
         SetupResult() {
-            mFailCause = FailCause.fromInt(0);
+            mFailCause = DcFailCause.fromInt(0);
         }
 
         @Override
@@ -75,7 +74,7 @@ public class DataCallState {
     @Override
     public String toString() {
         StringBuffer sb = new StringBuffer();
-        sb.append("DataCallState: {")
+        sb.append("DataCallResponse: {")
            .append("version=").append(version)
            .append(" status=").append(status)
            .append(" retry=").append(suggestedRetryTime)
@@ -116,7 +115,7 @@ public class DataCallState {
         else
             linkProperties.clear();
 
-        if (status == FailCause.NONE.getErrorCode()) {
+        if (status == DcFailCause.NONE.getErrorCode()) {
             String propertyPrefix = "net." + ifname + ".";
 
             try {
@@ -212,9 +211,8 @@ public class DataCallState {
                     } catch (IllegalArgumentException e) {
                         throw new UnknownHostException("Non-numeric gateway addr=" + addr);
                     }
-                    if (! ia.isAnyLocalAddress()) {
-                        linkProperties.addRoute(new RouteInfo(ia));
-                    }
+                    // Allow 0.0.0.0 or :: as a gateway; this indicates a point-to-point interface.
+                    linkProperties.addRoute(new RouteInfo(ia));
                 }
 
                 result = SetupResult.SUCCESS;

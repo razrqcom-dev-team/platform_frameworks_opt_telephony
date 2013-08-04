@@ -75,7 +75,7 @@ public class DebugService {
         pw.flush();
         pw.println("++++++++++++++++++++++++++++++++");
         try {
-            phoneBase.mDataConnectionTracker.dump(fd, pw, args);
+            phoneBase.mDcTracker.dump(fd, pw, args);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -96,7 +96,7 @@ public class DebugService {
         pw.flush();
         pw.println("++++++++++++++++++++++++++++++++");
         try {
-            ((RIL)phoneBase.mCM).dump(fd, pw, args);
+            ((RIL)phoneBase.mCi).dump(fd, pw, args);
         } catch (Exception e) {
             e.printStackTrace();
         }

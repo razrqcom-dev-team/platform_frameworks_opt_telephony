@@ -40,7 +40,7 @@ import static com.android.internal.telephony.uicc.IccConstants.EF_IMPU;
  * {@hide}
  */
 public final class IsimUiccRecords extends IccRecords implements IsimRecords {
-    protected static final String LOG_TAG = "GSM";
+    protected static final String LOG_TAG = "IsimUiccRecords";
 
     private static final boolean DBG = true;
     private static final boolean DUMP_RECORDS = false;   // Note: PII is logged when this is true
@@ -54,15 +54,24 @@ public final class IsimUiccRecords extends IccRecords implements IsimRecords {
 
     private static final int TAG_ISIM_VALUE = 0x80;     // From 3GPP TS 31.103
 
+    @Override
+    public String toString() {
+        return "IsimUiccRecords: " + super.toString()
+                + " mIsimImpi=" + mIsimImpi
+                + " mIsimDomain=" + mIsimDomain
+                + " mIsimImpu=" + mIsimImpu;
+    }
+
     public IsimUiccRecords(UiccCardApplication app, Context c, CommandsInterface ci) {
         super(app, c, ci);
 
-        recordsRequested = false;  // No load request is made till SIM ready
+        mRecordsRequested = false;  // No load request is made till SIM ready
 
         // recordsToLoad is set to 0 because no requests are made yet
-        recordsToLoad = 0;
+        mRecordsToLoad = 0;
 
         mParentApp.registerForReady(this, EVENT_APP_READY, null);
+        if (DBG) log("IsimUiccRecords X ctor this=" + this);
     }
 
     @Override
@@ -99,28 +108,28 @@ public final class IsimUiccRecords extends IccRecords implements IsimRecords {
     }
 
     protected void fetchIsimRecords() {
-        recordsRequested = true;
+        mRecordsRequested = true;
 
         mFh.loadEFTransparent(EF_IMPI, obtainMessage(
                 IccRecords.EVENT_GET_ICC_RECORD_DONE, new EfIsimImpiLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFLinearFixedAll(EF_IMPU, obtainMessage(
                 IccRecords.EVENT_GET_ICC_RECORD_DONE, new EfIsimImpuLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_DOMAIN, obtainMessage(
                 IccRecords.EVENT_GET_ICC_RECORD_DONE, new EfIsimDomainLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
-        log("fetchIsimRecords " + recordsToLoad);
+        log("fetchIsimRecords " + mRecordsToLoad);
     }
 
     protected void resetRecords() {
         // recordsRequested is set to false indicating that the SIM
         // read requests made so far are not valid. This is set to
         // true only when fresh set of read requests are made.
-        recordsRequested = false;
+        mRecordsRequested = false;
     }
 
     private class EfIsimImpiLoaded implements IccRecords.IccRecordLoaded {
@@ -184,19 +193,19 @@ public final class IsimUiccRecords extends IccRecords implements IsimRecords {
     protected void onRecordLoaded() {
         // One record loaded successfully or failed, In either case
         // we need to update the recordsToLoad count
-        recordsToLoad -= 1;
+        mRecordsToLoad -= 1;
 
-        if (recordsToLoad == 0 && recordsRequested == true) {
+        if (mRecordsToLoad == 0 && mRecordsRequested == true) {
             onAllRecordsLoaded();
-        } else if (recordsToLoad < 0) {
+        } else if (mRecordsToLoad < 0) {
             loge("recordsToLoad <0, programmer error suspected");
-            recordsToLoad = 0;
+            mRecordsToLoad = 0;
         }
     }
 
     @Override
     protected void onAllRecordsLoaded() {
-        recordsLoadedRegistrants.notifyRegistrants(
+        mRecordsLoadedRegistrants.notifyRegistrants(
                 new AsyncResult(null, null, null));
     }
 

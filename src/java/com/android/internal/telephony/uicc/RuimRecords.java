@@ -30,22 +30,15 @@ import java.util.Arrays;
 import java.util.Locale;
 import android.content.Context;
 import android.os.AsyncResult;
-import android.os.Handler;
 import android.os.Message;
-import android.os.Registrant;
 import android.os.SystemProperties;
 import android.telephony.Rlog;
+import android.text.TextUtils;
 
 import com.android.internal.telephony.CommandsInterface;
-import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.GsmAlphabet;
-import com.android.internal.telephony.PhoneBase;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.MccTable;
 
-// can't be used since VoiceMailConstants is not public
-//import com.android.internal.telephony.gsm.VoiceMailConstants;
-import com.android.internal.telephony.PhoneProxy;
 import com.android.internal.telephony.cdma.sms.UserData;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 
@@ -54,10 +47,9 @@ import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
  * {@hide}
  */
 public final class RuimRecords extends IccRecords {
-    static final String LOG_TAG = "CDMA";
+    static final String LOG_TAG = "RuimRecords";
 
-    private static final boolean DBG = true;
-    private boolean  m_ota_commited=false;
+    private boolean  mOtaCommited=false;
 
     // ***** Instance Variables
 
@@ -73,6 +65,22 @@ public final class RuimRecords extends IccRecords {
     private String mMin;
     private String mHomeSystemId;
     private String mHomeNetworkId;
+
+    @Override
+    public String toString() {
+        return "RuimRecords: " + super.toString()
+                + " m_ota_commited" + mOtaCommited
+                + " mMyMobileNumber=" + "xxxx"
+                + " mMin2Min1=" + mMin2Min1
+                + " mPrlVersion=" + mPrlVersion
+                + " mEFpl=" + mEFpl
+                + " mEFli=" + mEFli
+                + " mCsimSpnDisplayCondition=" + mCsimSpnDisplayCondition
+                + " mMdn=" + mMdn
+                + " mMin=" + mMin
+                + " mHomeSystemId=" + mHomeSystemId
+                + " mHomeNetworkId=" + mHomeNetworkId;
+    }
 
     // ***** Event Constants
     private static final int EVENT_GET_IMSI_DONE = 3;
@@ -92,12 +100,12 @@ public final class RuimRecords extends IccRecords {
     public RuimRecords(UiccCardApplication app, Context c, CommandsInterface ci) {
         super(app, c, ci);
 
-        adnCache = new AdnRecordCache(mFh);
+        mAdnCache = new AdnRecordCache(mFh);
 
-        recordsRequested = false;  // No load request is made till SIM ready
+        mRecordsRequested = false;  // No load request is made till SIM ready
 
         // recordsToLoad is set to 0 because no requests are made yet
-        recordsToLoad = 0;
+        mRecordsToLoad = 0;
 
         // NOTE the EVENT_SMS_ON_RUIM is not registered
         mCi.registerForIccRefresh(this, EVENT_RUIM_REFRESH, null);
@@ -106,6 +114,7 @@ public final class RuimRecords extends IccRecords {
         resetRecords();
 
         mParentApp.registerForReady(this, EVENT_APP_READY, null);
+        if (DBG) log("RuimRecords X ctor this=" + this);
     }
 
     @Override
@@ -124,11 +133,11 @@ public final class RuimRecords extends IccRecords {
     }
 
     protected void resetRecords() {
-        countVoiceMessages = 0;
-        mncLength = UNINITIALIZED;
-        iccid = null;
+        mCountVoiceMessages = 0;
+        mMncLength = UNINITIALIZED;
+        mIccId = null;
 
-        adnCache.reset();
+        mAdnCache.reset();
 
         // Don't clean up PROPERTY_ICC_OPERATOR_ISO_COUNTRY and
         // PROPERTY_ICC_OPERATOR_NUMERIC here. Since not all CDMA
@@ -139,7 +148,7 @@ public final class RuimRecords extends IccRecords {
         // recordsRequested is set to false indicating that the SIM
         // read requests made so far are not valid. This is set to
         // true only when fresh set of read requests are made.
-        recordsRequested = false;
+        mRecordsRequested = false;
     }
 
     @Override
@@ -202,10 +211,10 @@ public final class RuimRecords extends IccRecords {
             return null;
         }
 
-        if (mncLength != UNINITIALIZED && mncLength != UNKNOWN) {
+        if (mMncLength != UNINITIALIZED && mMncLength != UNKNOWN) {
             // Length = length of MCC + length of MNC
             // length of mcc = 3 (3GPP2 C.S0005 - Section 2.3)
-            return mImsi.substring(0, 3 + mncLength);
+            return mImsi.substring(0, 3 + mMncLength);
         }
 
         // Guess the MNC length based on the MCC if we don't
@@ -217,10 +226,12 @@ public final class RuimRecords extends IccRecords {
 
     // Refer to ETSI TS 102.221
     private class EfPlLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_PL";
         }
 
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             mEFpl = (byte[]) ar.result;
             if (DBG) log("EF_PL=" + IccUtils.bytesToHexString(mEFpl));
@@ -229,10 +240,12 @@ public final class RuimRecords extends IccRecords {
 
     // Refer to C.S0065 5.2.26
     private class EfCsimLiLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_CSIM_LI";
         }
 
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             mEFli = (byte[]) ar.result;
             // convert csim efli data to iso 639 format
@@ -255,10 +268,12 @@ public final class RuimRecords extends IccRecords {
 
     // Refer to C.S0065 5.2.32
     private class EfCsimSpnLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_CSIM_SPN";
         }
 
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             byte[] data = (byte[]) ar.result;
             if (DBG) log("CSIM_SPN=" +
@@ -279,22 +294,22 @@ public final class RuimRecords extends IccRecords {
             }
 
             if (numBytes == 0) {
-                spn = "";
+                mSpn = "";
                 return;
             }
             try {
                 switch (encoding) {
                 case UserData.ENCODING_OCTET:
                 case UserData.ENCODING_LATIN:
-                    spn = new String(spnData, 0, numBytes, "ISO-8859-1");
+                    mSpn = new String(spnData, 0, numBytes, "ISO-8859-1");
                     break;
                 case UserData.ENCODING_IA5:
                 case UserData.ENCODING_GSM_7BIT_ALPHABET:
                 case UserData.ENCODING_7BIT_ASCII:
-                    spn = GsmAlphabet.gsm7BitPackedToString(spnData, 0, (numBytes*8)/7);
+                    mSpn = GsmAlphabet.gsm7BitPackedToString(spnData, 0, (numBytes*8)/7);
                     break;
                 case UserData.ENCODING_UNICODE_16:
-                    spn =  new String(spnData, 0, numBytes, "utf-16");
+                    mSpn =  new String(spnData, 0, numBytes, "utf-16");
                     break;
                 default:
                     log("SPN encoding not supported");
@@ -302,17 +317,19 @@ public final class RuimRecords extends IccRecords {
             } catch(Exception e) {
                 log("spn decode error: " + e);
             }
-            if (DBG) log("spn=" + spn);
+            if (DBG) log("spn=" + mSpn);
             if (DBG) log("spnCondition=" + mCsimSpnDisplayCondition);
-            SystemProperties.set(PROPERTY_ICC_OPERATOR_ALPHA, spn);
+            SystemProperties.set(PROPERTY_ICC_OPERATOR_ALPHA, mSpn);
         }
     }
 
     private class EfCsimMdnLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_CSIM_MDN";
         }
 
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             byte[] data = (byte[]) ar.result;
             if (DBG) log("CSIM_MDN=" + IccUtils.bytesToHexString(data));
@@ -324,10 +341,12 @@ public final class RuimRecords extends IccRecords {
     }
 
     private class EfCsimImsimLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_CSIM_IMSIM";
         }
 
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             byte[] data = (byte[]) ar.result;
             if (DBG) log("CSIM_IMSIM=" + IccUtils.bytesToHexString(data));
@@ -359,10 +378,12 @@ public final class RuimRecords extends IccRecords {
     }
 
     private class EfCsimCdmaHomeLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_CSIM_CDMAHOME";
         }
 
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             // Per C.S0065 section 5.2.8
             ArrayList<byte[]> dataList = (ArrayList<byte[]>) ar.result;
@@ -391,9 +412,11 @@ public final class RuimRecords extends IccRecords {
     }
 
     private class EfCsimEprlLoaded implements IccRecordLoaded {
+        @Override
         public String getEfName() {
             return "EF_CSIM_EPRL";
         }
+        @Override
         public void onRecordLoaded(AsyncResult ar) {
             onGetCSimEprlDone(ar);
         }
@@ -490,9 +513,9 @@ public final class RuimRecords extends IccRecords {
                     break;
                 }
 
-                iccid = IccUtils.bcdToString(data, 0, data.length);
+                mIccId = IccUtils.bcdToString(data, 0, data.length);
 
-                log("iccid: " + iccid);
+                log("iccid: " + mIccId);
 
             break;
 
@@ -590,14 +613,14 @@ public final class RuimRecords extends IccRecords {
     protected void onRecordLoaded() {
         // One record loaded successfully or failed, In either case
         // we need to update the recordsToLoad count
-        recordsToLoad -= 1;
-        if (DBG) log("onRecordLoaded " + recordsToLoad + " requested: " + recordsRequested);
+        mRecordsToLoad -= 1;
+        if (DBG) log("onRecordLoaded " + mRecordsToLoad + " requested: " + mRecordsRequested);
 
-        if (recordsToLoad == 0 && recordsRequested == true) {
+        if (mRecordsToLoad == 0 && mRecordsRequested == true) {
             onAllRecordsLoaded();
-        } else if (recordsToLoad < 0) {
+        } else if (mRecordsToLoad < 0) {
             loge("recordsToLoad <0, programmer error suspected");
-            recordsToLoad = 0;
+            mRecordsToLoad = 0;
         }
     }
 
@@ -608,17 +631,24 @@ public final class RuimRecords extends IccRecords {
         // Further records that can be inserted are Operator/OEM dependent
 
         String operator = getRUIMOperatorNumeric();
-        log("RuimRecords: onAllRecordsLoaded set 'gsm.sim.operator.numeric' to operator='" +
-                operator + "'");
-        SystemProperties.set(PROPERTY_ICC_OPERATOR_NUMERIC, operator);
+        if (!TextUtils.isEmpty(operator)) {
+            log("onAllRecordsLoaded set 'gsm.sim.operator.numeric' to operator='" +
+                    operator + "'");
+            SystemProperties.set(PROPERTY_ICC_OPERATOR_NUMERIC, operator);
+        } else {
+            log("onAllRecordsLoaded empty 'gsm.sim.operator.numeric' skipping");
+        }
 
-        if (mImsi != null) {
+        if (!TextUtils.isEmpty(mImsi)) {
+            log("onAllRecordsLoaded set mcc imsi=" + mImsi);
             SystemProperties.set(PROPERTY_ICC_OPERATOR_ISO_COUNTRY,
                     MccTable.countryCodeForMcc(Integer.parseInt(mImsi.substring(0,3))));
+        } else {
+            log("onAllRecordsLoaded empty imsi skipping setting mcc");
         }
 
         setLocaleFromCsim();
-        recordsLoadedRegistrants.notifyRegistrants(
+        mRecordsLoadedRegistrants.notifyRegistrants(
             new AsyncResult(null, null, null));
     }
 
@@ -631,48 +661,48 @@ public final class RuimRecords extends IccRecords {
 
 
     private void fetchRuimRecords() {
-        recordsRequested = true;
+        mRecordsRequested = true;
 
-        if (DBG) log("fetchRuimRecords " + recordsToLoad);
+        if (DBG) log("fetchRuimRecords " + mRecordsToLoad);
 
         mCi.getIMSIForApp(mParentApp.getAid(), obtainMessage(EVENT_GET_IMSI_DONE));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_ICCID,
                 obtainMessage(EVENT_GET_ICCID_DONE));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_PL,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfPlLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_CSIM_LI,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimLiLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_CSIM_SPN,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimSpnLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFLinearFixed(EF_CSIM_MDN, 1,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimMdnLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_CSIM_IMSIM,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimImsimLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         mFh.loadEFLinearFixedAll(EF_CSIM_CDMAHOME,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimCdmaHomeLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
         // Entire PRL could be huge. We are only interested in
         // the first 4 bytes of the record.
         mFh.loadEFTransparent(EF_CSIM_EPRL, 4,
                 obtainMessage(EVENT_GET_ICC_RECORD_DONE, new EfCsimEprlLoaded()));
-        recordsToLoad++;
+        mRecordsToLoad++;
 
-        if (DBG) log("fetchRuimRecords " + recordsToLoad + " requested: " + recordsRequested);
+        if (DBG) log("fetchRuimRecords " + mRecordsToLoad + " requested: " + mRecordsRequested);
         // Further records that can be inserted are Operator/OEM dependent
     }
 
@@ -725,7 +755,7 @@ public final class RuimRecords extends IccRecords {
             // range: 0-99
             countWaiting = 0xff;
         }
-        countVoiceMessages = countWaiting;
+        mCountVoiceMessages = countWaiting;
 
         mRecordsEventsRegistrants.notifyResult(EVENT_MWI);
     }
@@ -745,7 +775,7 @@ public final class RuimRecords extends IccRecords {
         switch (refreshResponse.refreshResult) {
             case IccRefreshResponse.REFRESH_RESULT_FILE_UPDATE:
                 if (DBG) log("handleRuimRefresh with SIM_REFRESH_FILE_UPDATED");
-                adnCache.reset();
+                mAdnCache.reset();
                 fetchRuimRecords();
                 break;
             case IccRefreshResponse.REFRESH_RESULT_INIT:
@@ -805,7 +835,7 @@ public final class RuimRecords extends IccRecords {
         pw.println("RuimRecords: " + this);
         pw.println(" extends:");
         super.dump(fd, pw, args);
-        pw.println(" m_ota_commited=" + m_ota_commited);
+        pw.println(" mOtaCommited=" + mOtaCommited);
         pw.println(" mMyMobileNumber=" + mMyMobileNumber);
         pw.println(" mMin2Min1=" + mMin2Min1);
         pw.println(" mPrlVersion=" + mPrlVersion);

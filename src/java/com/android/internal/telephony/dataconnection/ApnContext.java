@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-package com.android.internal.telephony;
+package com.android.internal.telephony.dataconnection;
 
+import android.app.PendingIntent;
 import android.telephony.Rlog;
+
+import com.android.internal.telephony.DctConstants;
+import com.android.internal.telephony.Phone;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -31,7 +35,7 @@ public class ApnContext {
 
     public final String LOG_TAG;
 
-    protected static final boolean DBG = true;
+    protected static final boolean DBG = false;
 
     private final String mApnType;
 
@@ -44,13 +48,11 @@ public class ApnContext {
 
     private ApnSetting mApnSetting;
 
-    DataConnection mDataConnection;
-
-    DataConnectionAc mDataConnectionAc;
+    DcAsyncChannel mDcAc;
 
     String mReason;
 
-    int mRetryCount;
+    PendingIntent mReconnectAlarmIntent;
 
     /**
      * user/app requested connection on this APN
@@ -66,7 +68,6 @@ public class ApnContext {
         mApnType = apnType;
         mState = DctConstants.State.IDLE;
         setReason(Phone.REASON_DATA_ENABLED);
-        setRetryCount(0);
         mDataEnabled = new AtomicBoolean(false);
         mDependencyMet = new AtomicBoolean(true);
         mWaitingApnsPermanentFailureCountDown = new AtomicInteger(0);
@@ -77,41 +78,33 @@ public class ApnContext {
         return mApnType;
     }
 
-    public synchronized DataConnection getDataConnection() {
-        return mDataConnection;
+    public synchronized DcAsyncChannel getDcAc() {
+        return mDcAc;
     }
 
-    public synchronized void setDataConnection(DataConnection dc) {
+    public synchronized void setDataConnectionAc(DcAsyncChannel dcac) {
         if (DBG) {
-            log("setDataConnection: old dc=" + mDataConnection + " new dc=" + dc + " this=" + this);
+            log("setDataConnectionAc: old dcac=" + mDcAc + " new dcac=" + dcac
+                    + " this=" + this);
         }
-        mDataConnection = dc;
+        mDcAc = dcac;
     }
 
-
-    public synchronized DataConnectionAc getDataConnectionAc() {
-        return mDataConnectionAc;
+    public synchronized PendingIntent getReconnectIntent() {
+        return mReconnectAlarmIntent;
     }
 
-    public synchronized void setDataConnectionAc(DataConnectionAc dcac) {
-        if (DBG) {
-            log("setDataConnectionAc: old dcac=" + mDataConnectionAc + " new dcac=" + dcac);
-        }
-        if (dcac != null) {
-            dcac.addApnContextSync(this);
-        } else {
-            if (mDataConnectionAc != null) {
-                mDataConnectionAc.removeApnContextSync(this);
-            }
-        }
-        mDataConnectionAc = dcac;
+    public synchronized void setReconnectIntent(PendingIntent intent) {
+        mReconnectAlarmIntent = intent;
     }
 
     public synchronized ApnSetting getApnSetting() {
+        log("getApnSetting: apnSetting=" + mApnSetting);
         return mApnSetting;
     }
 
     public synchronized void setApnSetting(ApnSetting apnSetting) {
+        log("setApnSetting: apnSetting=" + apnSetting);
         mApnSetting = apnSetting;
     }
 
@@ -185,23 +178,15 @@ public class ApnContext {
         return mReason;
     }
 
-    public synchronized void setRetryCount(int retryCount) {
-        if (DBG) {
-            log("setRetryCount: " + retryCount);
-        }
-        mRetryCount = retryCount;
-        DataConnection dc = mDataConnection;
-        if (dc != null) {
-            dc.setRetryCount(retryCount);
-        }
-    }
-
-    public synchronized int getRetryCount() {
-        return mRetryCount;
-    }
-
     public boolean isReady() {
         return mDataEnabled.get() && mDependencyMet.get();
+    }
+
+    public boolean isConnectable() {
+        return isReady() && ((mState == DctConstants.State.IDLE)
+                                || (mState == DctConstants.State.SCANNING)
+                                || (mState == DctConstants.State.RETRYING)
+                                || (mState == DctConstants.State.FAILED));
     }
 
     public void setEnabled(boolean enabled) {
@@ -227,12 +212,11 @@ public class ApnContext {
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         // We don't print mDataConnection because its recursive.
-        return "{mApnType=" + mApnType + " mState=" + getState() + " mWaitingApns=" + mWaitingApns +
-                " mWaitingApnsPermanentFailureCountDown=" + mWaitingApnsPermanentFailureCountDown +
-                " mApnSetting=" + mApnSetting + " mDataConnectionAc=" + mDataConnectionAc +
-                " mReason=" + mReason + " mRetryCount=" + mRetryCount +
+        return "{mApnType=" + mApnType + " mState=" + getState() + " mWaitingApns={" + mWaitingApns +
+                "} mWaitingApnsPermanentFailureCountDown=" + mWaitingApnsPermanentFailureCountDown +
+                " mApnSetting={" + mApnSetting + "} mReason=" + mReason +
                 " mDataEnabled=" + mDataEnabled + " mDependencyMet=" + mDependencyMet + "}";
     }
 

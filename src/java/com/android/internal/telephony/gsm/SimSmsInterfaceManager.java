@@ -16,6 +16,7 @@
 
 package com.android.internal.telephony.gsm;
 
+import android.Manifest;
 import android.content.Context;
 import android.os.Binder;
 import android.os.Message;
@@ -33,7 +34,7 @@ import java.util.ArrayList;
  * access Sms in Sim.
  */
 public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
-    static final String LOG_TAG = "GSM";
+    static final String LOG_TAG = "SimSmsIM";
     static final boolean DBG = true;
 
     private CellBroadcastRangeManager mCellBroadcastRangeManager =
@@ -60,30 +61,35 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
         if(DBG) Rlog.d(LOG_TAG, "SimSmsInterfaceManager finalized");
     }
 
+    @Override
     protected void deleteSms(int index, Message response) {
-        mPhone.mCM.deleteSmsOnSim(index, response);
+        mPhone.mCi.deleteSmsOnSim(index, response);
     }
 
+    @Override
     protected void writeSms(int status, byte[] pdu, byte[] smsc, Message response) {
-        mPhone.mCM.writeSmsToSim(status, IccUtils.bytesToHexString(smsc),
+        mPhone.mCi.writeSmsToSim(status, IccUtils.bytesToHexString(smsc),
                 IccUtils.bytesToHexString(pdu), response);
     }
 
+    @Override
     public boolean enableCellBroadcast(int messageIdentifier) {
         return enableCellBroadcastRange(messageIdentifier, messageIdentifier);
     }
 
+    @Override
     public boolean disableCellBroadcast(int messageIdentifier) {
         return disableCellBroadcastRange(messageIdentifier, messageIdentifier);
     }
 
+    @Override
     public boolean enableCellBroadcastRange(int startMessageId, int endMessageId) {
         if (DBG) log("enableCellBroadcastRange");
 
         Context context = mPhone.getContext();
 
         context.enforceCallingPermission(
-                "android.permission.RECEIVE_SMS",
+                Manifest.permission.RECEIVE_SMS,
                 "Enabling cell broadcast SMS");
 
         String client = context.getPackageManager().getNameForUid(
@@ -104,13 +110,14 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
         return true;
     }
 
+    @Override
     public boolean disableCellBroadcastRange(int startMessageId, int endMessageId) {
         if (DBG) log("disableCellBroadcastRange");
 
         Context context = mPhone.getContext();
 
         context.enforceCallingPermission(
-                "android.permission.RECEIVE_SMS",
+                Manifest.permission.RECEIVE_SMS,
                 "Disabling cell broadcast SMS");
 
         String client = context.getPackageManager().getNameForUid(
@@ -140,6 +147,7 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
          * followed by zero or more calls to {@link #addRange} followed by
          * a call to {@link #finishUpdate}.
          */
+        @Override
         protected void startUpdate() {
             mConfigList.clear();
         }
@@ -150,6 +158,7 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
          * @param startId the first id included in the range
          * @param endId the last id included in the range
          */
+        @Override
         protected void addRange(int startId, int endId, boolean selected) {
             mConfigList.add(new SmsBroadcastConfigInfo(startId, endId,
                         SMS_CB_CODE_SCHEME_MIN, SMS_CB_CODE_SCHEME_MAX, selected));
@@ -160,6 +169,7 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
          * previous call to {@link #startUpdate}.
          * @return true if successful, false otherwise
          */
+        @Override
         protected boolean finishUpdate() {
             if (mConfigList.isEmpty()) {
                 return true;
@@ -179,7 +189,7 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
             Message response = mHandler.obtainMessage(EVENT_SET_BROADCAST_CONFIG_DONE);
 
             mSuccess = false;
-            mPhone.mCM.setGsmBroadcastConfig(configs, response);
+            mPhone.mCi.setGsmBroadcastConfig(configs, response);
 
             try {
                 mLock.wait();
@@ -199,7 +209,7 @@ public class SimSmsInterfaceManager extends IccSmsInterfaceManager {
             Message response = mHandler.obtainMessage(EVENT_SET_BROADCAST_ACTIVATION_DONE);
 
             mSuccess = false;
-            mPhone.mCM.setGsmBroadcastActivation(activate, response);
+            mPhone.mCi.setGsmBroadcastActivation(activate, response);
 
             try {
                 mLock.wait();

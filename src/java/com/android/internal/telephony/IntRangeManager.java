@@ -52,10 +52,10 @@ public abstract class IntRangeManager {
      * non-contiguous IntRanges.
      */
     private class IntRange {
-        int startId;
-        int endId;
+        int mStartId;
+        int mEndId;
         // sorted by earliest start id
-        final ArrayList<ClientRange> clients;
+        final ArrayList<ClientRange> mClients;
 
         /**
          * Create a new IntRange with a single client.
@@ -64,10 +64,10 @@ public abstract class IntRangeManager {
          * @param client the client requesting the enabled range
          */
         IntRange(int startId, int endId, String client) {
-            this.startId = startId;
-            this.endId = endId;
-            clients = new ArrayList<ClientRange>(INITIAL_CLIENTS_ARRAY_SIZE);
-            clients.add(new ClientRange(startId, endId, client));
+            mStartId = startId;
+            mEndId = endId;
+            mClients = new ArrayList<ClientRange>(INITIAL_CLIENTS_ARRAY_SIZE);
+            mClients.add(new ClientRange(startId, endId, client));
         }
 
         /**
@@ -75,10 +75,10 @@ public abstract class IntRangeManager {
          * @param clientRange the initial ClientRange to add
          */
         IntRange(ClientRange clientRange) {
-            startId = clientRange.startId;
-            endId = clientRange.endId;
-            clients = new ArrayList<ClientRange>(INITIAL_CLIENTS_ARRAY_SIZE);
-            clients.add(clientRange);
+            mStartId = clientRange.mStartId;
+            mEndId = clientRange.mEndId;
+            mClients = new ArrayList<ClientRange>(INITIAL_CLIENTS_ARRAY_SIZE);
+            mClients.add(clientRange);
         }
 
         /**
@@ -92,11 +92,11 @@ public abstract class IntRangeManager {
          * @param numElements the number of elements to copy from the original
          */
         IntRange(IntRange intRange, int numElements) {
-            this.startId = intRange.startId;
-            this.endId = intRange.endId;
-            this.clients = new ArrayList<ClientRange>(intRange.clients.size());
+            mStartId = intRange.mStartId;
+            mEndId = intRange.mEndId;
+            mClients = new ArrayList<ClientRange>(intRange.mClients.size());
             for (int i=0; i < numElements; i++) {
-                this.clients.add(intRange.clients.get(i));
+                mClients.add(intRange.mClients.get(i));
             }
         }
 
@@ -110,15 +110,16 @@ public abstract class IntRangeManager {
          * @param range the new ClientRange to insert
          */
         void insert(ClientRange range) {
-            int len = clients.size();
+            int len = mClients.size();
             int insert = -1;
             for (int i=0; i < len; i++) {
-                ClientRange nextRange = clients.get(i);
-                if (range.startId <= nextRange.startId) {
+                ClientRange nextRange = mClients.get(i);
+                if (range.mStartId <= nextRange.mStartId) {
                     // ignore duplicate ranges from the same client
                     if (!range.equals(nextRange)) {
                         // check if same startId, then order by endId
-                        if (range.startId == nextRange.startId && range.endId > nextRange.endId) {
+                        if (range.mStartId == nextRange.mStartId
+                                && range.mEndId > nextRange.mEndId) {
                             insert = i + 1;
                             if (insert < len) {
                                 // there may be more client following with same startId
@@ -127,16 +128,16 @@ public abstract class IntRangeManager {
                             }
                             break;
                         }
-                        clients.add(i, range);
+                        mClients.add(i, range);
                     }
                     return;
                 }
             }
             if (insert != -1 && insert < len) {
-                clients.add(insert, range);
+                mClients.add(insert, range);
                 return;
             }
-            clients.add(range);    // append to end of list
+            mClients.add(range);    // append to end of list
         }
     }
 
@@ -144,23 +145,23 @@ public abstract class IntRangeManager {
      * The message id range for a single client.
      */
     private class ClientRange {
-        final int startId;
-        final int endId;
-        final String client;
+        final int mStartId;
+        final int mEndId;
+        final String mClient;
 
         ClientRange(int startId, int endId, String client) {
-            this.startId = startId;
-            this.endId = endId;
-            this.client = client;
+            mStartId = startId;
+            mEndId = endId;
+            mClient = client;
         }
 
         @Override
         public boolean equals(Object o) {
             if (o != null && o instanceof ClientRange) {
                 ClientRange other = (ClientRange) o;
-                return startId == other.startId &&
-                        endId == other.endId &&
-                        client.equals(other.client);
+                return mStartId == other.mStartId &&
+                        mEndId == other.mEndId &&
+                        mClient.equals(other.mClient);
             } else {
                 return false;
             }
@@ -168,7 +169,7 @@ public abstract class IntRangeManager {
 
         @Override
         public int hashCode() {
-            return (startId * 31 + endId) * 31 + client.hashCode();
+            return (mStartId * 31 + mEndId) * 31 + mClient.hashCode();
         }
     }
 
@@ -204,25 +205,25 @@ public abstract class IntRangeManager {
 
         for (int startIndex = 0; startIndex < len; startIndex++) {
             IntRange range = mRanges.get(startIndex);
-            if ((startId) >= range.startId && (endId) <= range.endId) {
+            if ((startId) >= range.mStartId && (endId) <= range.mEndId) {
                 // exact same range:  new [1, 1] existing [1, 1]
                 // range already enclosed in existing: new [3, 3], [1,3]
                 // no radio update necessary.
                 // duplicate "client" check is done in insert, attempt to insert.
                 range.insert(new ClientRange(startId, endId, client));
                 return true;
-            } else if ((startId - 1) == range.endId) {
+            } else if ((startId - 1) == range.mEndId) {
                 // new [3, x] existing [1, 2]  OR new [2, 2] existing [1, 1]
                 // found missing link? check if next range can be joined
                 int newRangeEndId = endId;
                 IntRange nextRange = null;
                 if ((startIndex + 1) < len) {
                     nextRange = mRanges.get(startIndex + 1);
-                    if ((nextRange.startId - 1) <= endId) {
+                    if ((nextRange.mStartId - 1) <= endId) {
                         // new [3, x] existing [1, 2] [5, 7] OR  new [2 , 2] existing [1, 1] [3, 5]
-                        if (endId <= nextRange.endId) {
+                        if (endId <= nextRange.mEndId) {
                             // new [3, 6] existing [1, 2] [5, 7]
-                            newRangeEndId = nextRange.startId - 1; // need to enable [3, 4]
+                            newRangeEndId = nextRange.mStartId - 1; // need to enable [3, 4]
                         }
                     } else {
                         // mark nextRange to be joined as null.
@@ -230,27 +231,27 @@ public abstract class IntRangeManager {
                     }
                 }
                 if (tryAddRanges(startId, newRangeEndId, true)) {
-                    range.endId = endId;
+                    range.mEndId = endId;
                     range.insert(new ClientRange(startId, endId, client));
 
                     // found missing link? check if next range can be joined
                     if (nextRange != null) {
-                        if (range.endId < nextRange.endId) {
+                        if (range.mEndId < nextRange.mEndId) {
                             // new [3, 6] existing [1, 2] [5, 10]
-                            range.endId = nextRange.endId;
+                            range.mEndId = nextRange.mEndId;
                         }
-                        range.clients.addAll(nextRange.clients);
+                        range.mClients.addAll(nextRange.mClients);
                         mRanges.remove(nextRange);
                     }
                     return true;
                 } else {
                     return false;   // failed to update radio
                 }
-            } else if (startId < range.startId) {
+            } else if (startId < range.mStartId) {
                 // new [1, x] , existing [5, y]
                 // test if new range completely precedes this range
                 // note that [1, 4] and [5, 6] coalesce to [1, 6]
-                if ((endId + 1) < range.startId) {
+                if ((endId + 1) < range.mStartId) {
                     // new [1, 3] existing [5, 6] non contiguous case
                     // insert new int range before previous first range
                     if (tryAddRanges(startId, endId, true)) {
@@ -259,12 +260,12 @@ public abstract class IntRangeManager {
                     } else {
                         return false;   // failed to update radio
                     }
-                } else if (endId <= range.endId) {
+                } else if (endId <= range.mEndId) {
                     // new [1, 4] existing [5, 6]  or  new [1, 1] existing [2, 2]
                     // extend the start of this range
-                    if (tryAddRanges(startId, range.startId - 1, true)) {
-                        range.startId = startId;
-                        range.clients.add(0, new ClientRange(startId, endId, client));
+                    if (tryAddRanges(startId, range.mStartId - 1, true)) {
+                        range.mStartId = startId;
+                        range.mClients.add(0, new ClientRange(startId, endId, client));
                         return true;
                     } else {
                         return false;   // failed to update radio
@@ -273,14 +274,14 @@ public abstract class IntRangeManager {
                     // find last range that can coalesce into the new combined range
                     for (int endIndex = startIndex+1; endIndex < len; endIndex++) {
                         IntRange endRange = mRanges.get(endIndex);
-                        if ((endId + 1) < endRange.startId) {
+                        if ((endId + 1) < endRange.mStartId) {
                             // new [1, 10] existing [2, 3] [14, 15]
                             // try to add entire new range
                             if (tryAddRanges(startId, endId, true)) {
-                                range.startId = startId;
-                                range.endId = endId;
+                                range.mStartId = startId;
+                                range.mEndId = endId;
                                 // insert new ClientRange before existing ranges
-                                range.clients.add(0, new ClientRange(startId, endId, client));
+                                range.mClients.add(0, new ClientRange(startId, endId, client));
                                 // coalesce range with following ranges up to endIndex-1
                                 // remove each range after adding its elements, so the index
                                 // of the next range to join is always startIndex+1.
@@ -290,22 +291,22 @@ public abstract class IntRangeManager {
                                 for (int i = joinIndex; i < endIndex; i++) {
                                     // new [1, 10] existing [2, 3] [5, 6] [14, 15]
                                     IntRange joinRange = mRanges.get(joinIndex);
-                                    range.clients.addAll(joinRange.clients);
+                                    range.mClients.addAll(joinRange.mClients);
                                     mRanges.remove(joinRange);
                                 }
                                 return true;
                             } else {
                                 return false;   // failed to update radio
                             }
-                        } else if (endId <= endRange.endId) {
+                        } else if (endId <= endRange.mEndId) {
                             // new [1, 10] existing [2, 3] [5, 15]
                             // add range from start id to start of last overlapping range,
                             // values from endRange.startId to endId are already enabled
-                            if (tryAddRanges(startId, endRange.startId - 1, true)) {
-                                range.startId = startId;
-                                range.endId = endRange.endId;
+                            if (tryAddRanges(startId, endRange.mStartId - 1, true)) {
+                                range.mStartId = startId;
+                                range.mEndId = endRange.mEndId;
                                 // insert new ClientRange before existing ranges
-                                range.clients.add(0, new ClientRange(startId, endId, client));
+                                range.mClients.add(0, new ClientRange(startId, endId, client));
                                 // coalesce range with following ranges up to endIndex
                                 // remove each range after adding its elements, so the index
                                 // of the next range to join is always startIndex+1.
@@ -314,7 +315,7 @@ public abstract class IntRangeManager {
                                 int joinIndex = startIndex + 1;
                                 for (int i = joinIndex; i <= endIndex; i++) {
                                     IntRange joinRange = mRanges.get(joinIndex);
-                                    range.clients.addAll(joinRange.clients);
+                                    range.mClients.addAll(joinRange.mClients);
                                     mRanges.remove(joinRange);
                                 }
                                 return true;
@@ -327,10 +328,10 @@ public abstract class IntRangeManager {
                     // new [1, 10] existing [2, 3]
                     // endId extends past all existing IntRanges: combine them all together
                     if (tryAddRanges(startId, endId, true)) {
-                        range.startId = startId;
-                        range.endId = endId;
+                        range.mStartId = startId;
+                        range.mEndId = endId;
                         // insert new ClientRange before existing ranges
-                        range.clients.add(0, new ClientRange(startId, endId, client));
+                        range.mClients.add(0, new ClientRange(startId, endId, client));
                         // coalesce range with following ranges up to len-1
                         // remove each range after adding its elements, so the index
                         // of the next range to join is always startIndex+1.
@@ -340,7 +341,7 @@ public abstract class IntRangeManager {
                         for (int i = joinIndex; i < len; i++) {
                             // new [1, 10] existing [2, 3] [5, 6]
                             IntRange joinRange = mRanges.get(joinIndex);
-                            range.clients.addAll(joinRange.clients);
+                            range.mClients.addAll(joinRange.mClients);
                             mRanges.remove(joinRange);
                         }
                         return true;
@@ -348,9 +349,9 @@ public abstract class IntRangeManager {
                         return false;   // failed to update radio
                     }
                 }
-            } else if ((startId + 1) <= range.endId) {
+            } else if ((startId + 1) <= range.mEndId) {
                 // new [2, x] existing [1, 4]
-                if (endId <= range.endId) {
+                if (endId <= range.mEndId) {
                     // new [2, 3] existing [1, 4]
                     // completely contained in existing range; no radio changes
                     range.insert(new ClientRange(startId, endId, client));
@@ -361,7 +362,7 @@ public abstract class IntRangeManager {
                     int endIndex = startIndex;
                     for (int testIndex = startIndex+1; testIndex < len; testIndex++) {
                         IntRange testRange = mRanges.get(testIndex);
-                        if ((endId + 1) < testRange.startId) {
+                        if ((endId + 1) < testRange.mStartId) {
                             break;
                         } else {
                             endIndex = testIndex;
@@ -372,8 +373,8 @@ public abstract class IntRangeManager {
                         // new [2, 5] existing [1, 4]
                         // add range from range.endId+1 to endId,
                         // values from startId to range.endId are already enabled
-                        if (tryAddRanges(range.endId + 1, endId, true)) {
-                            range.endId = endId;
+                        if (tryAddRanges(range.mEndId + 1, endId, true)) {
+                            range.mEndId = endId;
                             range.insert(new ClientRange(startId, endId, client));
                             return true;
                         } else {
@@ -386,12 +387,12 @@ public abstract class IntRangeManager {
                     // if endId > endRange.endId, then enable range from range.endId+1 to endId,
                     // else enable range from range.endId+1 to endRange.startId-1, because
                     // values from endRange.startId to endId have already been added.
-                    int newRangeEndId = (endId <= endRange.endId) ? endRange.startId - 1 : endId;
+                    int newRangeEndId = (endId <= endRange.mEndId) ? endRange.mStartId - 1 : endId;
                     // new [2, 10] existing [1, 4] [7, 8] OR
                     // new [2, 10] existing [1, 4] [7, 15]
-                    if (tryAddRanges(range.endId + 1, newRangeEndId, true)) {
-                        newRangeEndId = (endId <= endRange.endId) ? endRange.endId : endId;
-                        range.endId = newRangeEndId;
+                    if (tryAddRanges(range.mEndId + 1, newRangeEndId, true)) {
+                        newRangeEndId = (endId <= endRange.mEndId) ? endRange.mEndId : endId;
+                        range.mEndId = newRangeEndId;
                         // insert new ClientRange in place
                         range.insert(new ClientRange(startId, endId, client));
                         // coalesce range with following ranges up to endIndex
@@ -402,7 +403,7 @@ public abstract class IntRangeManager {
                         int joinIndex = startIndex + 1;
                         for (int i = joinIndex; i <= endIndex; i++) {
                             IntRange joinRange = mRanges.get(joinIndex);
-                            range.clients.addAll(joinRange.clients);
+                            range.mClients.addAll(joinRange.mClients);
                             mRanges.remove(joinRange);
                         }
                         return true;
@@ -438,18 +439,18 @@ public abstract class IntRangeManager {
 
         for (int i=0; i < len; i++) {
             IntRange range = mRanges.get(i);
-            if (startId < range.startId) {
+            if (startId < range.mStartId) {
                 return false;   // not found
-            } else if (endId <= range.endId) {
+            } else if (endId <= range.mEndId) {
                 // found the IntRange that encloses the client range, if any
                 // search for it in the clients list
-                ArrayList<ClientRange> clients = range.clients;
+                ArrayList<ClientRange> clients = range.mClients;
 
                 // handle common case of IntRange containing one ClientRange
                 int crLength = clients.size();
                 if (crLength == 1) {
                     ClientRange cr = clients.get(0);
-                    if (cr.startId == startId && cr.endId == endId && cr.client.equals(client)) {
+                    if (cr.mStartId == startId && cr.mEndId == endId && cr.mClient.equals(client)) {
                         // mRange contains only what's enabled.
                         // remove the range from mRange then update the radio
                         mRanges.remove(i);
@@ -477,10 +478,10 @@ public abstract class IntRangeManager {
                 // crlength >= 2
                 for (int crIndex=0; crIndex < crLength; crIndex++) {
                     ClientRange cr = clients.get(crIndex);
-                    if (cr.startId == startId && cr.endId == endId && cr.client.equals(client)) {
+                    if (cr.mStartId == startId && cr.mEndId == endId && cr.mClient.equals(client)) {
                         // found the ClientRange to remove, check if it's the last in the list
                         if (crIndex == crLength - 1) {
-                            if (range.endId == largestEndId) {
+                            if (range.mEndId == largestEndId) {
                                 // remove [2, 5] from [1, 7] [2, 5]
                                 // no channels to remove from radio; return success
                                 clients.remove(crIndex);
@@ -488,12 +489,12 @@ public abstract class IntRangeManager {
                             } else {
                                 // disable the channels at the end and lower the end id
                                 clients.remove(crIndex);
-                                range.endId = largestEndId;
+                                range.mEndId = largestEndId;
                                 if (updateRanges()) {
                                     return true;
                                 } else {
                                     clients.add(crIndex, cr);
-                                    range.endId = cr.endId;
+                                    range.mEndId = cr.mEndId;
                                     return false;
                                 }
                             }
@@ -508,15 +509,15 @@ public abstract class IntRangeManager {
                             // removing the first ClientRange, so we may need to increase
                             // the start id of the IntRange.
                             // We know there are at least two ClientRanges in the list,
-                            // because check for just one ClientRangees case is already handled
+                            // because check for just one ClientRanges case is already handled
                             // so clients.get(1) should always succeed.
-                            int nextStartId = clients.get(1).startId;
-                            if (nextStartId != range.startId) {
+                            int nextStartId = clients.get(1).mStartId;
+                            if (nextStartId != range.mStartId) {
                                 updateStarted = true;
-                                rangeCopy.startId = nextStartId;
+                                rangeCopy.mStartId = nextStartId;
                             }
                             // init largestEndId
-                            largestEndId = clients.get(1).endId;
+                            largestEndId = clients.get(1).mEndId;
                         }
 
                         // go through remaining ClientRanges, creating new IntRanges when
@@ -528,26 +529,26 @@ public abstract class IntRangeManager {
                         IntRange currentRange = rangeCopy;
                         for (int nextIndex = crIndex + 1; nextIndex < crLength; nextIndex++) {
                             ClientRange nextCr = clients.get(nextIndex);
-                            if (nextCr.startId > largestEndId + 1) {
+                            if (nextCr.mStartId > largestEndId + 1) {
                                 updateStarted = true;
-                                currentRange.endId = largestEndId;
+                                currentRange.mEndId = largestEndId;
                                 newRanges.add(currentRange);
                                 currentRange = new IntRange(nextCr);
                             } else {
-                                if (currentRange.endId < nextCr.endId) {
-                                    currentRange.endId = nextCr.endId;
+                                if (currentRange.mEndId < nextCr.mEndId) {
+                                    currentRange.mEndId = nextCr.mEndId;
                                 }
-                                currentRange.clients.add(nextCr);
+                                currentRange.mClients.add(nextCr);
                             }
-                            if (nextCr.endId > largestEndId) {
-                                largestEndId = nextCr.endId;
+                            if (nextCr.mEndId > largestEndId) {
+                                largestEndId = nextCr.mEndId;
                             }
                         }
 
                         // remove any channels between largestEndId and endId
                         if (largestEndId < endId) {
                             updateStarted = true;
-                            currentRange.endId = largestEndId;
+                            currentRange.mEndId = largestEndId;
                         }
                         newRanges.add(currentRange);
 
@@ -564,8 +565,8 @@ public abstract class IntRangeManager {
                         return true;
                     } else {
                         // not the ClientRange to remove; save highest end ID seen so far
-                        if (cr.endId > largestEndId) {
-                            largestEndId = cr.endId;
+                        if (cr.mEndId > largestEndId) {
+                            largestEndId = cr.mEndId;
                         }
                     }
                 }
@@ -621,7 +622,7 @@ public abstract class IntRangeManager {
         // Populate all ranges from mRanges
         while (itr.hasNext()) {
             IntRange currRange = (IntRange) itr.next();
-            addRange(currRange.startId, currRange.endId, true);
+            addRange(currRange.mStartId, currRange.mEndId, true);
         }
     }
 
@@ -634,10 +635,10 @@ public abstract class IntRangeManager {
         for (int i = 0; i < len; i++) {
             IntRange range = mRanges.get(i);
 
-            int clientLen = range.clients.size();
+            int clientLen = range.mClients.size();
             for (int j=0; j < clientLen; j++) {
-                ClientRange nextRange = range.clients.get(j);
-                addRange(nextRange.startId, nextRange.endId, true);
+                ClientRange nextRange = range.mClients.get(j);
+                addRange(nextRange.mStartId, nextRange.mEndId, true);
             }
         }
     }

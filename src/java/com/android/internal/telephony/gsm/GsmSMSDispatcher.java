@@ -49,7 +49,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 public final class GsmSMSDispatcher extends SMSDispatcher {
-    private static final String TAG = "GSM";
+    private static final String TAG = "GsmSMSDispatcher";
+    private static final boolean VDBG = false;
 
     /** Status report received */
     private static final int EVENT_NEW_SMS_STATUS_REPORT = 100;
@@ -66,17 +67,17 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
     public GsmSMSDispatcher(PhoneBase phone, SmsStorageMonitor storageMonitor,
             SmsUsageMonitor usageMonitor) {
         super(phone, storageMonitor, usageMonitor);
-        mDataDownloadHandler = new UsimDataDownloadHandler(mCm);
-        mCm.setOnNewGsmSms(this, EVENT_NEW_SMS, null);
-        mCm.setOnSmsStatus(this, EVENT_NEW_SMS_STATUS_REPORT, null);
-        mCm.setOnNewGsmBroadcastSms(this, EVENT_NEW_BROADCAST_SMS, null);
+        mDataDownloadHandler = new UsimDataDownloadHandler(mCi);
+        mCi.setOnNewGsmSms(this, EVENT_NEW_SMS, null);
+        mCi.setOnSmsStatus(this, EVENT_NEW_SMS_STATUS_REPORT, null);
+        mCi.setOnNewGsmBroadcastSms(this, EVENT_NEW_BROADCAST_SMS, null);
     }
 
     @Override
     public void dispose() {
-        mCm.unSetOnNewGsmSms(this);
-        mCm.unSetOnSmsStatus(this);
-        mCm.unSetOnNewGsmBroadcastSms(this);
+        mCi.unSetOnNewGsmSms(this);
+        mCi.unSetOnSmsStatus(this);
+        mCi.unSetOnNewGsmBroadcastSms(this);
     }
 
     @Override
@@ -105,10 +106,10 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
             AsyncResult ar = (AsyncResult) msg.obj;
             if (ar.exception == null) {
                 Rlog.d(TAG, "Successfully wrote SMS-PP message to UICC");
-                mCm.acknowledgeLastIncomingGsmSms(true, 0, null);
+                mCi.acknowledgeLastIncomingGsmSms(true, 0, null);
             } else {
                 Rlog.d(TAG, "Failed to write SMS-PP message to UICC", ar.exception);
-                mCm.acknowledgeLastIncomingGsmSms(false,
+                mCi.acknowledgeLastIncomingGsmSms(false,
                         CommandsInterface.GSM_SMS_FAIL_CAUSE_UNSPECIFIED_ERROR, null);
             }
             break;
@@ -131,7 +132,7 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
 
         if (sms != null) {
             int tpStatus = sms.getStatus();
-            int messageRef = sms.messageRef;
+            int messageRef = sms.mMessageRef;
             for (int i = 0, count = deliveryPendingList.size(); i < count; i++) {
                 SmsTracker tracker = deliveryPendingList.get(i);
                 if (tracker.mMessageRef == messageRef) {
@@ -190,7 +191,7 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
                 String smsc = IccUtils.bytesToHexString(
                         PhoneNumberUtils.networkPortionToCalledPartyBCDWithLength(
                                 sms.getServiceCenterAddress()));
-                mCm.writeSmsToSim(SmsManager.STATUS_ON_ICC_UNREAD, smsc,
+                mCi.writeSmsToSim(SmsManager.STATUS_ON_ICC_UNREAD, smsc,
                         IccUtils.bytesToHexString(sms.getPdu()),
                         obtainMessage(EVENT_WRITE_SMS_COMPLETE));
                 return Activity.RESULT_OK;  // acknowledge after response from write to USIM
@@ -209,13 +210,13 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
         if (sms.isMWISetMessage()) {
             mPhone.setVoiceMessageWaiting(1, -1);  // line 1: unknown number of msgs waiting
             handled = sms.isMwiDontStore();
-            if (false) {
+            if (VDBG) {
                 Rlog.d(TAG, "Received voice mail indicator set SMS shouldStore=" + !handled);
             }
         } else if (sms.isMWIClearMessage()) {
             mPhone.setVoiceMessageWaiting(1, 0);   // line 1: no msgs waiting
             handled = sms.isMwiDontStore();
-            if (false) {
+            if (VDBG) {
                 Rlog.d(TAG, "Received voice mail indicator clear SMS shouldStore=" + !handled);
             }
         }
@@ -309,13 +310,13 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
                 pdu[1] = (byte) tracker.mMessageRef; // TP-MR
             }
         }
-        mCm.sendSMS(IccUtils.bytesToHexString(smsc), IccUtils.bytesToHexString(pdu), reply);
+        mCi.sendSMS(IccUtils.bytesToHexString(smsc), IccUtils.bytesToHexString(pdu), reply);
     }
 
     /** {@inheritDoc} */
     @Override
     protected void acknowledgeLastIncomingSms(boolean success, int result, Message response) {
-        mCm.acknowledgeLastIncomingGsmSms(success, resultToCause(result), response);
+        mCi.acknowledgeLastIncomingGsmSms(success, resultToCause(result), response);
     }
 
     private static int resultToCause(int rc) {
@@ -393,7 +394,7 @@ public final class GsmSMSDispatcher extends SMSDispatcher {
         try {
             byte[] receivedPdu = (byte[])ar.result;
 
-            if (false) {
+            if (VDBG) {
                 for (int i = 0; i < receivedPdu.length; i += 8) {
                     StringBuilder sb = new StringBuilder("SMS CB pdu data: ");
                     for (int j = i; j < i + 8 && j < receivedPdu.length; j++) {

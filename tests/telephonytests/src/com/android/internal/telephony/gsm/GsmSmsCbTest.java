@@ -16,11 +16,11 @@
 
 package com.android.internal.telephony.gsm;
 
+import android.telephony.Rlog;
 import android.telephony.SmsCbEtwsInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
 import android.test.AndroidTestCase;
-import android.telephony.Rlog;
 
 import com.android.internal.telephony.uicc.IccUtils;
 

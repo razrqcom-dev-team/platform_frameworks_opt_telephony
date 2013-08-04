@@ -73,8 +73,8 @@ import java.util.ArrayList;
  * {@hide}
  */
 public class RetryManager {
-    static public final String LOG_TAG = "GSM";
-    static public final boolean DBG = true;
+    static public final String LOG_TAG = "RetryManager";
+    static public final boolean DBG = false;
     static public final boolean VDBG = false;
 
     /**
@@ -102,11 +102,13 @@ public class RetryManager {
      */
     private int mMaxRetryCount;
 
+    private int mCurMaxRetryCount;
+
     /** The current number of retries */
     private int mRetryCount;
 
     /** Random number generator */
-    private Random rng = new Random();
+    private Random mRng = new Random();
 
     private String mConfig;
 
@@ -115,12 +117,15 @@ public class RetryManager {
         if (VDBG) log("constructor");
     }
 
+    @Override
     public String toString() {
-        String ret = "RetryManager: forever=" + mRetryForever + ", maxRetry=" + mMaxRetryCount +
-                ", retry=" + mRetryCount + ",\n    " + mConfig;
+        String ret = "RetryManager: { forever=" + mRetryForever + " maxRetry=" + mMaxRetryCount
+                + " curMaxRetry=" + mCurMaxRetryCount + " retry=" + mRetryCount
+                + " config={" + mConfig + "} retryArray={";
         for (RetryRec r : mRetryArray) {
-            ret += "\n    " + r.mDelayTime + ":" + r.mRandomizationTime;
+            ret += r.mDelayTime + ":" + r.mRandomizationTime + " ";
         }
+        ret += "}}";
         return ret;
     }
 
@@ -154,6 +159,8 @@ public class RetryManager {
         }
 
         mMaxRetryCount = maxRetryCount;
+        mCurMaxRetryCount = mMaxRetryCount;
+
         resetRetryCount();
         mRetryArray.clear();
         mRetryArray.add(new RetryRec(retryTime, randomizationTime));
@@ -241,6 +248,7 @@ public class RetryManager {
                 mMaxRetryCount = mRetryArray.size();
                 if (VDBG) log("configure: setting mMaxRetryCount=" + mMaxRetryCount);
             }
+            mCurMaxRetryCount = mMaxRetryCount;
             if (VDBG) log("configure: true");
             return true;
         } else {
@@ -256,7 +264,7 @@ public class RetryManager {
      *         false} otherwise.
      */
     public boolean isRetryNeeded() {
-        boolean retVal = mRetryForever || (mRetryCount < mMaxRetryCount);
+        boolean retVal = mRetryForever || (mRetryCount < mCurMaxRetryCount);
         if (DBG) log("isRetryNeeded: " + retVal);
         return retVal;
     }
@@ -296,8 +304,8 @@ public class RetryManager {
      */
     public void increaseRetryCount() {
         mRetryCount++;
-        if (mRetryCount > mMaxRetryCount) {
-            mRetryCount = mMaxRetryCount;
+        if (mRetryCount > mCurMaxRetryCount) {
+            mRetryCount = mCurMaxRetryCount;
         }
         if (DBG) log("increaseRetryCount: " + mRetryCount);
     }
@@ -307,8 +315,8 @@ public class RetryManager {
      */
     public void setRetryCount(int count) {
         mRetryCount = count;
-        if (mRetryCount > mMaxRetryCount) {
-            mRetryCount = mMaxRetryCount;
+        if (mRetryCount > mCurMaxRetryCount) {
+            mRetryCount = mCurMaxRetryCount;
         }
 
         if (mRetryCount < 0) {
@@ -316,6 +324,33 @@ public class RetryManager {
         }
 
         if (DBG) log("setRetryCount: " + mRetryCount);
+    }
+
+    /**
+     * Set current maximum retry count to the specified value
+     */
+    public void setCurMaxRetryCount(int count) {
+        mCurMaxRetryCount = count;
+
+        // Make sure it's not negative
+        if (mCurMaxRetryCount < 0) {
+            mCurMaxRetryCount = 0;
+        }
+
+        // Make sure mRetryCount is within range
+        setRetryCount(mRetryCount);
+
+        if (DBG) log("setCurMaxRetryCount: " + mCurMaxRetryCount);
+    }
+
+    /**
+     * Restore CurMaxRetryCount
+     */
+    public void restoreCurMaxRetryCount() {
+        mCurMaxRetryCount = mMaxRetryCount;
+
+        // Make sure mRetryCount is within range
+        setRetryCount(mRetryCount);
     }
 
     /**
@@ -338,7 +373,7 @@ public class RetryManager {
      * Retry forever using last timeout time.
      */
     public void retryForeverUsingLastTimeout() {
-        mRetryCount = mMaxRetryCount;
+        mRetryCount = mCurMaxRetryCount;
         mRetryForever = true;
         if (DBG) log("retryForeverUsingLastTimeout: " + mRetryForever + ", " + mRetryCount);
     }
@@ -400,7 +435,7 @@ public class RetryManager {
         if (randomTime == 0) {
             return 0;
         } else {
-            return rng.nextInt(randomTime);
+            return mRng.nextInt(randomTime);
         }
     }
 

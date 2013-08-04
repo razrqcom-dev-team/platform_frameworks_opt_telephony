@@ -18,21 +18,18 @@ package com.android.internal.telephony.cdma;
 
 
 import android.app.Activity;
+import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.PendingIntent.CanceledException;
 import android.content.BroadcastReceiver;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.database.Cursor;
-import android.database.SQLException;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.SystemProperties;
 import android.preference.PreferenceManager;
-import android.provider.Telephony;
 import android.provider.Telephony.Sms.Intents;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SmsCbMessage;
@@ -65,7 +62,8 @@ import java.util.HashMap;
 
 
 final class CdmaSMSDispatcher extends SMSDispatcher {
-    private static final String TAG = "CDMA";
+    private static final String TAG = "CdmaSMSDispatcher";
+    private static final boolean VDBG = false;
 
     private byte[] mLastDispatchedSmsFingerprint;
     private byte[] mLastAcknowledgedSmsFingerprint;
@@ -76,12 +74,12 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
     CdmaSMSDispatcher(CDMAPhone phone, SmsStorageMonitor storageMonitor,
             SmsUsageMonitor usageMonitor) {
         super(phone, storageMonitor, usageMonitor);
-        mCm.setOnNewCdmaSms(this, EVENT_NEW_SMS, null);
+        mCi.setOnNewCdmaSms(this, EVENT_NEW_SMS, null);
     }
 
     @Override
     public void dispose() {
-        mCm.unSetOnNewCdmaSms(this);
+        mCi.unSetOnNewCdmaSms(this);
     }
 
     @Override
@@ -92,7 +90,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
     private void handleCdmaStatusReport(SmsMessage sms) {
         for (int i = 0, count = deliveryPendingList.size(); i < count; i++) {
             SmsTracker tracker = deliveryPendingList.get(i);
-            if (tracker.mMessageRef == sms.messageRef) {
+            if (tracker.mMessageRef == sms.mMessageRef) {
                 // Found it.  Remove from list and broadcast.
                 deliveryPendingList.remove(i);
                 PendingIntent intent = tracker.mDeliveryIntent;
@@ -123,7 +121,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
         Intent intent = new Intent(Intents.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED_ACTION);
         intent.putExtra("sender", sms.getOriginatingAddress());
         intent.putParcelableArrayListExtra("program_data", programDataList);
-        dispatch(intent, RECEIVE_SMS_PERMISSION, mScpResultsReceiver);
+        dispatch(intent, RECEIVE_SMS_PERMISSION, AppOpsManager.OP_RECEIVE_SMS, mScpResultsReceiver);
     }
 
     /** {@inheritDoc} */
@@ -193,7 +191,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
             handleServiceCategoryProgramData(sms);
             handled = true;
         } else if ((sms.getUserData() == null)) {
-            if (false) {
+            if (VDBG) {
                 Rlog.d(TAG, "Received SMS without user data");
             }
             handled = true;
@@ -212,7 +210,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
         }
 
         if (SmsEnvelope.TELESERVICE_WAP == teleService) {
-            return processCdmaWapPdu(sms.getUserData(), sms.messageRef,
+            return processCdmaWapPdu(sms.getUserData(), sms.mMessageRef,
                     sms.getOriginatingAddress());
         }
 
@@ -234,7 +232,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
      * WDP segments are gathered until a datagram completes and gets dispatched.
      *
      * @param pdu The WAP-WDP PDU segment
-     * @return a result code from {@link Telephony.Sms.Intents}, or
+     * @return a result code from {@link android.provider.Telephony.Sms.Intents}, or
      *         {@link Activity#RESULT_OK} if the message has been broadcast
      *         to applications
      */
@@ -343,7 +341,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
                     sentIntent.send(SmsManager.RESULT_ERROR_NO_SERVICE);
                 } catch (CanceledException ex) {}
             }
-            if (false) {
+            if (VDBG) {
                 Rlog.d(TAG, "Block SMS in Emergency Callback mode");
             }
             return;
@@ -360,7 +358,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
         byte pdu[] = (byte[]) map.get("pdu");
 
         Message reply = obtainMessage(EVENT_SEND_SMS_COMPLETE, tracker);
-        mCm.sendCdmaSms(pdu, reply);
+        mCi.sendCdmaSms(pdu, reply);
     }
 
     /** {@inheritDoc} */
@@ -372,7 +370,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
         }
 
         int causeCode = resultToCause(result);
-        mCm.acknowledgeLastIncomingCdmaSms(success, causeCode, response);
+        mCi.acknowledgeLastIncomingCdmaSms(success, causeCode, response);
 
         if (causeCode == 0) {
             mLastAcknowledgedSmsFingerprint = mLastDispatchedSmsFingerprint;
@@ -490,7 +488,7 @@ final class CdmaSMSDispatcher extends SMSDispatcher {
                 dos.write(encodedBearerData.length);
                 dos.write(encodedBearerData, 0, encodedBearerData.length);
                 // Ignore the RIL response. TODO: implement retry if SMS send fails.
-                mCm.sendCdmaSms(baos.toByteArray(), null);
+                mCi.sendCdmaSms(baos.toByteArray(), null);
             } catch (IOException e) {
                 Rlog.e(TAG, "exception creating SCP results PDU", e);
             } finally {

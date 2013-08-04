@@ -31,17 +31,19 @@ import com.android.internal.telephony.uicc.IccFileHandler;
 
 
 public class SimPhoneBookInterfaceManager extends IccPhoneBookInterfaceManager {
-    static final String LOG_TAG = "GSM";
+    static final String LOG_TAG = "SimPhoneBookIM";
 
     public SimPhoneBookInterfaceManager(GSMPhone phone) {
         super(phone);
         //NOTE service "simphonebook" added by IccSmsInterfaceManagerProxy
     }
 
+    @Override
     public void dispose() {
         super.dispose();
     }
 
+    @Override
     protected void finalize() {
         try {
             super.finalize();
@@ -51,30 +53,33 @@ public class SimPhoneBookInterfaceManager extends IccPhoneBookInterfaceManager {
         if(DBG) Rlog.d(LOG_TAG, "SimPhoneBookInterfaceManager finalized");
     }
 
+    @Override
     public int[] getAdnRecordsSize(int efid) {
         if (DBG) logd("getAdnRecordsSize: efid=" + efid);
         synchronized(mLock) {
             checkThread();
-            recordSize = new int[3];
+            mRecordSize = new int[3];
 
             //Using mBaseHandler, no difference in EVENT_GET_SIZE_DONE handling
             AtomicBoolean status = new AtomicBoolean(false);
             Message response = mBaseHandler.obtainMessage(EVENT_GET_SIZE_DONE, status);
 
-            IccFileHandler fh = phone.getIccFileHandler();
+            IccFileHandler fh = mPhone.getIccFileHandler();
             if (fh != null) {
                 fh.getEFLinearRecordSize(efid, response);
                 waitForResult(status);
             }
         }
 
-        return recordSize;
+        return mRecordSize;
     }
 
+    @Override
     protected void logd(String msg) {
         Rlog.d(LOG_TAG, "[SimPbInterfaceManager] " + msg);
     }
 
+    @Override
     protected void loge(String msg) {
         Rlog.e(LOG_TAG, "[SimPbInterfaceManager] " + msg);
     }

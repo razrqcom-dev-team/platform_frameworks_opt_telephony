@@ -663,33 +663,6 @@ class CommandParamsFactory extends Handler {
     }
 
     /**
-     * Processes SET_UP_EVENT_LIST proactive command from the SIM card.
-     *
-     * @param cmdDet Command Details object retrieved.
-     * @param ctlvs List of ComprehensionTlv objects following Command Details
-     *        object and Device Identities object within the proactive command
-     * @return true if the command is processing is pending and additional
-     *         asynchronous processing is required.
-     */
-    private boolean processSetUpEventList(CommandDetails cmdDet,
-            List<ComprehensionTlv> ctlvs) {
-
-        CatLog.d(this, "process SetUpEventList");
-        //
-        // ComprehensionTlv ctlv = searchForTag(ComprehensionTlvTag.EVENT_LIST,
-        // ctlvs);
-        // if (ctlv != null) {
-        // try {
-        // byte[] rawValue = ctlv.getRawValue();
-        // int valueIndex = ctlv.getValueIndex();
-        // int valueLen = ctlv.getLength();
-        //
-        // } catch (IndexOutOfBoundsException e) {}
-        // }
-        return true;
-    }
-
-    /**
      * Processes LAUNCH_BROWSER proactive command from the SIM card.
      *
      * @param cmdDet Command Details container object.
@@ -943,7 +916,7 @@ class CommandParamsFactory extends Handler {
 
         if (iconId != null) {
             mIconLoadState = LOAD_SINGLE_ICON;
-            mIconLoader.loadIcon(iconId.recordNumber, this.obtainMessage(MSG_ID_LOAD_ICON_DONE));
+            mIconLoader.loadIcon(iconId.recordNumber, obtainMessage(MSG_ID_LOAD_ICON_DONE));
             return true;
         }
         return false;
